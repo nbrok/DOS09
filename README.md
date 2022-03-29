@@ -1,2 +1,2 @@
 # DOS09
-My own Disk Operating Sytem for the 6809. It is still in development and not completely ready for use... though it can be used but it is not as I want it to be finally. Probaly you can learn something...... This software runs at my Scrumpel8d syetem with a CF-card interface.
+My own Disk Operating Sytem for the 6809. It is still in development and not completely ready for use... though it can be used but it is not as I want it to be finally. Probaly you can learn something...... This software runs at my Scrumpel8d system with a CF-card interface.
