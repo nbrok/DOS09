@@ -2,7 +2,6 @@
 
 dosbegin	equ	$8000
 monitor		equ	$c01b
-bytein		equ	$c00f
 mtpa		equ	$0100
 
 ;Entry vector for dos functions
@@ -50,9 +49,9 @@ dosini	lds	stack_pointer
 	ldd	#fdos
 	std	dos_entry_vect+1
 	ldx	#cfaddress
-	lda	#5
-	sta	cfseccnt,x
-	cmpa	cfseccnt,x
+	lda	#5		;Test if card is present by writing
+	sta	cfseccnt,x	;into sector count register from CF-card
+	cmpa	cfseccnt,x	;Write succesfull? Then card present.
 	beq	cardpresent
 	ldx	#nocard
 	jsr	ott
@@ -87,13 +86,11 @@ cardpresent
 	clr	lba0
 	clr	lba1
 	clr	lba2
-	lda	#$e0
-	sta	lba3
-	lda	#0
-	jsr	select_drive
+	clra			;Initialize the disk and set to no files
+	jsr	select_drive	;open
 	clr	file_opened,y
 	jmp	dos_reentry
 
-sectorbuffer	rmb	512
+sectorbuffer	rmb	512	;Sectorbuffer on end of OS 
 
 	end
