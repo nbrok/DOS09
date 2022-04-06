@@ -225,26 +225,16 @@ mkfcb2	stx	i_fcb_ptr1
 	sta	FCB_drive,x
 	ldb	0,y
 	bne	continue_making_fcb
-
-nothing_more
-
 	orcc	#1
 	andcc	#$fd
 	rts
-
+	
 nothing_more_p
 
 	orcc	#3
 	rts
 
 continue_making_fcb
-
-;	jsr	get_select_token
-;	bcs	g_token
-;	ldb	0,y
-;	beq	nothing_more_p
-
-g_token
 
 	lda	#16
 
@@ -301,7 +291,7 @@ extend_loop
 
 without_extend
 
-	orcc	#$fc
+	andcc	#$fc
 	rts
 
 wild_card2
@@ -565,8 +555,8 @@ reset_loop
 
 F_error_txt
 
-	fcb	"Directory and/or FAT R/W failed.",cr,lf
-	fcb	"Retry? (Y/N) : ",0
+	fcb	esc,"[31m","Directory and/or FAT R/W failed.",cr,lf
+	fcb	"Retry? (Y/N) : ",esc,"[0m",0
 
 decimal_ot
 
@@ -817,15 +807,15 @@ dir_full
 
 fat_full_txt
 
-        fcb	cr,lf,"FAT error, returning to DOS.",cr,lf,0
+        fcb	esc,"[31m","FAT error, returning to DOS.",esc,"[0m",0
 
 DISK_full_txt
 
-	fcb	cr,lf,"Allocation table full.",cr,lf,0
+	fcb	esc,"[31m","Allocation table full.",esc,"[0m",0
 
 DIR_full_txt
 
-	fcb	cr,lf,"Directory-entry-space full.",cr,lf,0
+	fcb	esc,"[31m","Directory-entry-space full.",esc,"[0m",0
 
 close_file
 
@@ -1550,7 +1540,7 @@ auto_input
 ;Het token waar IX naar wijst moet voorafgegaan worden door een byte dat
 ;de lengte van het token aangeeft.
 ;Voorbeeld :
-;x_indexed      db      $2,',X'
+;x_indexed      fcb      $2,',X'
 ;
 ;De $2 geeft aan dat de string (het token) 2 karakters lang is.
 ;Van het token waar IY op wijst wordt de lengte bepaald en deze wordt
@@ -1819,86 +1809,161 @@ type_loop2
 	lda	#lf
 	jsr	ot
 tp1
-	cmpx	#sectorbuffer+512
+	cmpx	#sectorbuffer+bytes_sector
 	bne	type_loop2
 	bra	type_loop1
 
 minl_token      fcb     2,"-L"
+minlc_token	fcb	3,"-LC"
+minc_token	fcb	2,"-C"
+
+;***********************************************
+;* Check LS options
+;* dflag=$00 no options
+;* dflag=$01 only long dir (-L)
+;* dflag=$02 only colour dir (-C)
+;* dflag=$03 Long and colour dir (-LC)
+;***********************************************
 
 check_options
 
 	pshs	x
+	clr	dflag
 	ldy	interpreter_pointer
 	ldx	#minl_token
 	jsr	compare_token
-	sta	dflag
-	sty	interpreter_pointer
+	bne	chonx1
+	lda	#%00000001		;Long dir
+chonex	sta	dflag
+chonex0	sty	interpreter_pointer
 	puls	x
 	rts
+chonx1	ldx	#minlc_token
+	jsr	compare_token
+	bne	chonx2
+	lda	#%00000011		;Colour dir and long dir
+	bra	chonex
+chonx2	ldx	#minc_token
+	jsr	compare_token
+	bne	chonex0
+	lda	#%00000010		;Colour dir
+	bra	chonex
 
 display_d_filename
 
-	pshs	x
-	ldb	#16
+	pshs	x			;Save X
+	lda	dflag
+	bita	#%00000010
+	beq	ncold
+	bsr	set_disp_color		;Get file-type colour
+ncold	ldb	#16			;Name of file is 16 characters
 
 d_file_name_loop
 
-	lda	0,x
-	pshs	b
-	jsr	ot
-	puls	b
-        leax	1,x
+	lda	0,x			;Get character of filename
+	pshs	b			;Save B
+	jsr	ot			;Print it
+	puls	b			;Restore B
+        leax	1,x			;Increment X by one
 	decb
-        bne	d_file_name_loop
-	lda	#space
+        bne	d_file_name_loop	;Got all 16 ones?
+	lda	#'.'			;Print a dot
 	jsr	ot
-	ldb	#3
+	ldb	#3			;Filetype name is 3 characters
 
 d_file_name_loop1
 
-	lda	0,x
-	pshs	b
-	jsr     ot
-	puls	b
-	leax	1,x
+	lda	0,x			;Get character of filetype
+	pshs	b			;Save B
+	jsr     ot			;Print it
+	puls	b			;Restore B
+	leax	1,x			;Increment X by one
 	decb
-	bne	d_file_name_loop1
+	bne	d_file_name_loop1	;Got all 3 ones?
 	lda	#space
-	jsr	ot
-	puls	x
+	jsr	ot			;Print the space
+	jsr	ot			;Print second space
+	ldx	#defcol			;Point X to sequence for default colour
+	jsr	ott			;Reset to default colour
+	puls	x			;Restore X
 	rts
 
+set_disp_color
+	
+	pshs	x,y			;Save X and Y
+	ldb	#16			;Skip filename (16)
+	abx				;X points at Filetype
+	ldy	#extendtable		;Y on filetype to colour listing
+fclp1	pshs	x			;Save X
+	lda	0,y			;Get first character of colour list
+	cmpa	#$ff			;If equal to $FF end of table reached 
+	beq	fcex			;so no changes in colour
+	cmpa	0,x			;Compare first char of extend
+	bne	fcnxt0			;Not the same? Then get next in table
+	leax	1,x			;Check second character
+	leay	1,y
+	lda	0,y
+	cmpa	0,x
+	bne	fcnxt1			;Not the same? Then get next in table
+	leax	1,x			;Check third character
+	leay	1,y
+	lda	0,x
+	cmpa	0,y
+	bne	fcnxt2			;Not the same? Then get next in table
+	exg	x,y			;The same? Then change into colour
+	leax	2,x			;given in table
+	jsr	ott
+fcex	puls	x			;Restore X
+	puls	x,y			;Restore X and Y
+	rts
+fcnxt0	leay	1,y			;Get to next in list
+fcnxt1	leay	1,y
+fcnxt2	leay	1,y
+	ldb	0,y			;Get offset to skip to next filetype
+	exg	x,y			;in list
+	abx				;Add it to Y (X<-->Y)
+	exg	x,y
+	puls	x			;Restore X
+	bra	fclp1			;Search next
+	
+;*******************************************
+;* Calculate the total of all filelengths
+;*******************************************
 get_file_lengths
 
-	ldx	current_dir
-	ldd	#0
-	std	i_fcb_ptr3
+	ldx	current_dir		;Load X with current dir pointer
+	ldd	#0			;Clear the length
+	std	i_fcb_ptr3		;This pointer is used for the total
 
 get_file_length_loop
 
-	lda	0,x
-	cmpa	#$e5
+	lda	0,x			;Get first character of directory
+	cmpa	#$e5			;$E5? then end of entries reached
 	beq	ready_lengths
 	tsta
-	bmi	get_file_length_next
-	ldd	DIR_length,x
-	addd	i_fcb_ptr3
-	std	i_fcb_ptr3
+	bmi	get_file_length_next	;Minus? Then it is a deleted file
+	ldd	DIR_length,x		;Positive? Then get length of file
+	addd	i_fcb_ptr3		;Add it to the total
+	std	i_fcb_ptr3		;and save it
 
 get_file_length_next
 
 	exg	d,x
-	addd	#dir_entry_len
+	addd	#dir_entry_len		;Go to the next entry in directory
 	exg	d,x
-	bra	get_file_length_loop
+	bra	get_file_length_loop	;Check next file
 
 ready_lengths
 
-	rts
+	rts				;Done
+
+;**************************************************
+;* Display the files in the directory
+;**************************************************
 
 disp_dir
 
-	bsr	check_options
+	jsr	check_options
 	clr	entry_counter
 	lda	#3
 	sta	d_ctr
@@ -1913,7 +1978,8 @@ kl0	lda	#'?'
 	decb
 	bne	kl0
 kl1	lda	dflag
-	bne	kl4
+	bita	#%00000001
+	beq	kl4
 
 kl3	ldx	#dir_text
 	jsr	ott
@@ -1935,7 +2001,7 @@ kl2	pshs	x
 	inc	file_opened,x
 	ldx	4,x
 	ldb	5,x
-	lda	#512/32			;Per sector 512/32 entries
+	lda	#bytes_sector/32		;Per sector 512/32 entries
 	mul
 	subd	#1
 	std	direntries
@@ -1945,12 +2011,12 @@ d_n_entry
 
 	jsr	display_d_filename
 	lda	dflag
-	bne	kl5
+	bita	#%00000001
+	beq	kl5
 	pshs	x
 	ldd	DIR_length,x
 	lslb
 	rola
-	andcc   #$fe
 	ldx	#decimal_buffer
 	std	1,x
 	clr	0,x
@@ -1969,15 +2035,18 @@ d_n_entry
 	jsr	ot
 	lda	DIR_t_s,x
 	jsr	byteot
-	lda	#space
-	jsr	ot
+	pshs	x
+	lda	DIR_d_m,x
+	ldx	#maand_tabel
+	cmpa	#$10
+	bcs	pnmnt
+	suba	#6
+pnmnt	deca
+	jsr	mesgot
+	puls	x
 	lda	DIR_d_d,x
 	jsr	byteot
-	lda	#'-'
-	jsr	ot
-	lda	DIR_d_m,x
-	jsr	byteot
-	lda	#'-'
+	lda	#space
 	jsr	ot
 	ldx	DIR_d_y,x
 	jsr	xot
@@ -1988,7 +2057,8 @@ kl5	ldx	#internal_fcb1
 	puls	x
 	bcs	klq
 	lda	dflag
-	beq	d_n_entry
+	bita	#%00000001
+	bne	d_n_entry
 	lda	d_ctr
 	deca
 	sta	d_ctr
@@ -1999,7 +2069,8 @@ klq1	lda	#3
 	jsr	crlf
 	bra	d_n_entry1
 klq	lda	dflag
-	beq	kl6
+	bita	#%00000001
+	bne	kl6
 	pshs	x
 	ldx	#internal_fcb1
 	ldx	FCB_drive_param_ptr,x
@@ -2080,7 +2151,7 @@ cnt_ready
 
 parameter_error
 
-	fcb	"Illegal parameter.",cr,lf,0
+	fcb	esc,"[31m","Illegal parameter.",esc,"[0m",cr,lf,0
 
 illegal_parameter
 
@@ -2095,7 +2166,7 @@ illpar1 jsr     ott
 
 parameter_missing
 
-	fcb	"Missing parameter.",cr,lf,0
+	fcb	esc,"[31m","Missing parameter.",esc,"[0m",cr,lf,0
 
 save_file
 
@@ -2159,7 +2230,7 @@ delete_to_save
 
 teveeltxt
 
-	fcb	"No more then 100 sectors allowed!",0
+	fcb	esc,"[31m","No more then 100 sectors allowed!",esc,"[0m",0
 
 check_fcb
 
@@ -2208,7 +2279,7 @@ overwritten
 	ldx	#overwr
 	jmp	ott
 
-overwr	fcb	"File already exists.",0
+overwr	fcb	esc,"[31m","File already exists.",esc,"[0m",0
 
 execute_from_disk
 
@@ -2293,14 +2364,14 @@ fail1	jsr	ott
 	ldx	#internal_fcb1
 	jmp	close_file
 
-enftxt		fcb	"File not found.",0
-err01t		fcb	"Disk I/O failed.",0
-miss_txt	fcb	"Missing filename.",0
-file_to_longt	fcb	"File to long.",0
+enftxt		fcb	esc,"[31m","File not found.",esc,"[0m",0
+err01t		fcb	esc,"[31m","Disk I/O failed.",esc,"[0m",0
+miss_txt	fcb	esc,"[31m","Missing filename.",esc,"[0m",0
+file_to_longt	fcb	esc,"[31m","File to long.",esc,"[0m",0
 
 missing_decimal
 
-	fcb	"Decimal number expected.",0
+	fcb	esc,"[31m","Decimal number expected.",esc,"[0m",0
 
 decimal_missing
 
@@ -2358,7 +2429,7 @@ error_dec_in
 
 dec_ovf
 
-	fcb	"Decimal number must be in [0-255].",0
+	fcb	esc,"[31m","Decimal number must be in [0-255].",esc,"[0m",0
 
 dir_text
 
@@ -2368,4 +2439,23 @@ dir_end_txt
 
 	fcb	" byte(s) used in files.",cr,lf,0
 	fcb	" byte(s) free on disk.",cr,lf,0
+
+extendtable
+
+	fcb	"EXE",9,esc,"[1;32m",0
+	fcb	"BAS",9,esc,"[1;33m",0
+	fcb	"PAS",9,esc,"[1;33m",0
+	fcb	"SYS",7,esc,"[32m",0
+	fcb	"ASM",9,esc,"[1;36m",0
+	fcb	"SRC",9,esc,"[1;36m",0
+	fcb	"HLP",9,esc,"[1;33m",0
+	fcb	"DAT",7,esc,"[37m",0
+	fcb	"TXT",7,esc,"[33m",0
+	fcb	"PRN",7,esc,"[37m",0
+	fcb	"LIF",9,esc,"[1;36m",0
+	fcb	"SYM",9,esc,"[1;37m",0
+	fcb	"REL",9,esc,"[1;35m",0
+	fcb	"CFG",9,esc,"[1;34m",0
+	fcb	"ZIP",9,esc,"[1;31m",0
+	fcb     $ff
 
