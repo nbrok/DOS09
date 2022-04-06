@@ -6,38 +6,50 @@ cr		equ	$0d		;Cariage return
 lf		equ	$0a		;Line feed
 mbyte		equ	$10
 eof		equ	$1a
+esc		equ	$1b		;Escape character
+
+;****************************************************
+;* Ansi codes for character colours
+;****************************************************
+
+rood	fcb	esc,"[31m",0	;Dark red
+blauw	fcb	esc,"[34m",0	;Dark blue
+groen	fcb	esc,"[32m",0	;Dark green
+geel	fcb	esc,"[33m",0	;Dark yellow
+wit	fcb	esc,"[37m",0	;Normal wite
+magenta	fcb	esc,"[35m",0	;Dark magenta
+cyaan	fcb	esc,"[36m",0	;Dark cyan
+hrood	fcb	esc,"[1;31m",0	;Light red
+hblauw	fcb	esc,"[1;34m",0	;Light blue
+hgroen	fcb	esc,"[1;32m",0	;Light green
+hgeel	fcb	esc,"[1;33m",0	;Light yellow
+hwit	fcb	esc,"[1;37m",0	;Bright white
+hmagent	fcb	esc,"[1;35m",0	;Light magenta
+hcyaan	fcb	esc,"[1;36m",0	;light cyan
+
+defcol	fcb	esc,"[0m",0	;Go back to default colour
 
 ;****************************************************
 ;* Basic I/O routines
 ;****************************************************
 
-in	pshs	b
-inlp	ldb	acia_status
-	bitb	#$1
-	beq	inlp
-	lda	acia_data
-	puls	b
+in	pshs	b		;Save B
+inlp	ldb	acia_status	;Get ACIA status
+	bitb	#$1		;Check receiver full
+	beq	inlp		;Full? No, then check again
+	lda	acia_data	;Yes? Get the character
+	puls	b		;Restore B
 	rts
 
 crlf	lda	#cr
-	bsr	ot
-	lda	#lf
-ot	pshs	b
-otlp	ldb	acia_status
-	bitb	#$2
-	beq	otlp
-	sta	acia_data
-	puls	b
-	rts
-
-acia_init
-
-	pshs	b
-	ldb	#%00000011
-	stb	acia_status	;RESET acia
-	ldb	#aciainit	;Set baudrate
-	stb	acia_status
-	puls	b
+	bsr	ot		;Sent CR
+	lda	#lf		;Sent LF
+ot	pshs	b		;Save B
+otlp	ldb	acia_status	;Get ACIA status
+	bitb	#$2		;Check transmitter empty
+	beq	otlp		;Transmitter empty? No, check again
+	sta	acia_data	;Yes, sent the character
+	puls	b		;Restore B
 	rts
 
 ott	lda	0,x+		;Display character pointed by X and inc X
@@ -49,10 +61,49 @@ exott	rts
 xot	pshs	a,b
 	exg	d,x
 	pshs	b
-	bsr	byteot
+	bsr	byteot		;Print highbyte
 	puls	a
-	bsr	byteot
+	bsr	byteot		;Print lowbyte
 	puls	a,b
+	rts
+
+getnibble
+
+	bsr	in		;Get character
+	tfr	a,b
+	jsr	conluc1		;Convert to uppercase
+	tfr	b,a
+	cmpa	#'0'		;Is it a 0?
+	bcs	gnerr		;No, then error.
+	cmpa	#$3a
+	bcs	sub0
+	cmpa	#'A'
+	bcs	gnerr
+	cmpa	#'G'
+	bcc	gnerr
+	bsr	ot		;Echo character
+	suba	#7
+	bra	add0
+sub0	bsr	ot		;Echo character
+add0	suba	#'0'
+	andcc	#$fe		;Clear carry
+	rts
+gnerr	orcc	#1		;Set carry
+	rts
+
+bytein	bsr	getnibble	;Get high nibble
+	bcs	bytein
+	sta	mbyte
+bytin1	bsr	getnibble	;Get low nibble
+	bcs	bytin1
+	tfr	a,b
+	lda	mbyte
+	lsla
+	lsla
+	lsla
+	lsla
+	pshs	b
+	adda	,s+		;Combine both to byte in A
 	rts
 
 byteot	pshs	a,b		;Save A and B
@@ -63,15 +114,11 @@ byteot	pshs	a,b		;Save A and B
 	lsra
 	lsra
 bytlp	anda	#$0f		;Mask lower byte
-	pshs	a		;Save A
-	tfr	cc,a
-	anda	#%11011100
-	tfr	a,cc
-        puls	a		;Restore A
+	andcc	#%11011100	;Reset some flags in CC to do a good DAA 
         daa			;Decimal adjust
         adda	#$f0
         adca	#$40
-        jsr	ot		;Print the HEX digit.
+        bsr	ot		;Print the HEX digit.
         lda	mbyte		;Restore hex-byte
         decb
         bne	bytlp		;Get next nibble
@@ -84,7 +131,7 @@ decimal_buffer	rmb	4
 
 dec32_ot
 
-	jsr	bin_omzetting
+	bsr	bin_omzetting
 	pshs	x
 	ldx	#decimal_fstring
 	jsr	ott
@@ -180,7 +227,7 @@ deel_eind1
         lda     divtenr
         rts
 
-chksum	adda	crc			;Bereken checksum.
+chksum	adda	crc		;Calculate checksum.
 	sta	crc
 	rts
 
@@ -192,41 +239,41 @@ trl1	jsr	in
 	bne	trl1
 	jsr	ot
 	jsr	bytein
-	beq	trend
-	sta	teller
-	clr	crc
-	jsr	chksum
-	jsr	bytein
-	sta	buffer
-	jsr	chksum
-	jsr	bytein
-	sta	buffer+1
-	jsr	chksum
-	ldx	buffer
-	jsr	bytein
-	jsr	chksum
-trl0	jsr	bytein
-	sta	0,x+
-	jsr	chksum
-	dec	teller
-	bne	trl0
-	jsr	bytein
+	beq	trend		;A :00 means end of transfer
+	sta	teller		;Store first byte in counter (number of bytes)
+	clr	crc		;Clear CRC
+	jsr	chksum		;Calculate checksum
+	jsr	bytein		;Get address high byte
+	sta	buffer		;Store it in buffer (= load address)
+	jsr	chksum		;Calculate checksum
+	jsr	bytein		;Get Address low byte
+	sta	buffer+1	;Store it in buffer
+	jsr	chksum		;Calculate checksum
+	ldx	buffer		;Get load address into X
+	jsr	bytein		;Get control byte
+	jsr	chksum		;Calculate checksum
+trl0	jsr	bytein		;Get byte to load
+	sta	0,x+		;Store data
+	jsr	chksum		;Calculate checksum
+	dec	teller		;Decrement counter
+	bne	trl0		;Get next byte until all done
+	jsr	bytein		;Get checksum
 	nega
-	cmpa	crc
-	beq	transfer_in
-chkerr	ldx	#transfererr
+	cmpa	crc		;Check checksum
+	beq	transfer_in	;Correct? Get next line
+chkerr	ldx	#transfererr	;Print CRC error message
 	jsr	ott
-	orcc	#1
+	orcc	#1		;Set the carry
 	rts
-trend	jsr	in
+trend	jsr	in		;Wait for CR
 	cmpa	#cr
 	bne	trend
-	andcc	#$fe
+	andcc	#$fe		;Reset the carry
 	rts
 
 transfererr
 
-	fcb	cr,lf,"Intel-hex checksum error.",0
+	fcb	esc,"[31m",cr,lf,"Intel-hex checksum error.",esc,"[0m",0
 
 bin_ctr	rmb	1
 divtenr	rmb	1
