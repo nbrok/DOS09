@@ -38,7 +38,6 @@ driveid		equ	$ec
 ;* Internal variables and buffer
 ;********************************
 
-lba3		fcb	$e0
 lba2		fcb	$00
 lba1		fcb	$00
 lba0		fcb	$00
@@ -61,7 +60,7 @@ erexit	rts
 
 initerror
 
-	fcb	cr,lf,"Error initialising CF-Card",cr,lf,0
+	fcb	cr,lf,esc,"[31m","Error initialising CF-Card",esc,"[0m",cr,lf,0
 
 init	fcb	"Initialising CF-card",cr,lf,0
 
@@ -104,21 +103,17 @@ initcf  ldx	#init
 	stb	cffeature,x
 	ldb	#$ef
 	stb	cfcommand,x
+	jsr	cmdwait
 	ldb	#$e0		; Clear LBA3, set Master & LBA mode
 	stb	cflba3,x
-	jsr	cmdwait
 	ldb	#$01		; Read only one sector at a time.
 	stb	cfseccnt,x
-	jsr	cmdwait
 	ldb	lba0
 	stb	cflba0,x
-	jsr	cmdwait
 	ldb	lba1
 	stb	cflba1,x
-	jsr	cmdwait
 	ldb	lba2
 	stb	cflba2,x
-	jsr	cmdwait
 	jsr	datwait
 	rts
 
@@ -132,16 +127,12 @@ writecf	pshs	y,x,b,a
 	ldx	#cfaddress              
 	ldb	lba0		; Load the LBA addresses with the current
 	stb	cflba0,x	; settings before issuing the write command
-;	jsr	cmdwait
 	ldb	lba1
 	stb	cflba1,x
-;	jsr	cmdwait
 	ldb	lba2
 	stb	cflba2,x
-;	jsr	cmdwait
-	ldb	lba3
+	ldb	#$e0		; LBA3 is not used so set to $E0
 	stb	cflba3,x
-;	jsr	cmdwait
 	ldb	#$01
 	stb	cfseccnt,x
 	jsr	cmdwait
@@ -168,16 +159,12 @@ readcf	pshs	y,x,b,a
 	jsr	cmdwait
 	ldb	lba0		; Load the LBA addresses with the current
 	stb	cflba0,x	; settings before issuing the read command
-;	jsr	cmdwait
 	ldb	lba1
 	stb	cflba1,x
-;	jsr	cmdwait
 	ldb	lba2
 	stb	cflba2,x
-;	jsr	cmdwait
-	ldb	lba3
-	stb	cflba3,x
-;	jsr	cmdwait
+	ldb	#$e0
+	stb	cflba3,x	; LBA3 is not used so set to $E0
 	ldb	#$01
 	stb	cfseccnt,x
 	jsr	cmdwait
@@ -276,6 +263,8 @@ lbacnt	leax	1,y
 	std	decimal_buffer+2
 	stx	decimal_buffer
 	jsr	dec32_ot
+	ldx	#defcol
+	jsr	ott
 	puls	y,x,b,a
 	rts
 
@@ -293,7 +282,7 @@ serno	fcc	" Serial No.: "
 	fcb	$0
 firmrev	fcb	cr,lf,"Firmware Rev.: "
 	fcb	$0
-modelno	fcb	cr,lf,"Model No.: "
+modelno	fcb	esc,"[33m",cr,lf,"Model No.: "
 	fcb	$0
 lbasize	fcb	cr,lf,"LBA Size : "
 	fcb	$0
@@ -306,8 +295,6 @@ set_lba_sector
 	stb	lba0
 	sta	lba1
 	clr	lba2
-	lda	#$e0
-	sta	lba3
 	andcc	#$fe
 	rts
 
@@ -337,7 +324,7 @@ error_sas
 	jsr	ott
 	jmp	dos_reentry
 
-err01	fcb	cr,lf,"Sector not available, aborting operation.",cr,lf,0
+err01	fcb	esc,"[31m","Sector not available, aborting operation.",esc,"[0m",cr,lf,0
 
 set_dma	stx	dma_register
 	andcc	#$fe
@@ -375,20 +362,13 @@ select_drive_bios
 	clra
 	lslb
 	rola
-	andcc	#$fe
+	lslb
+	rola
+	lslb
+	rola
 	lslb
 	rola
 	andcc	#$fe
-	lslb
-	rola
-	andcc   #$fe
-	lslb
-	rola
-	andcc	#$fe
-;	lsld
-;	lsld
-;	lsld
-;	lsld
 	addd	#Parameter_tables
 	exg	d,y
         puls	a
