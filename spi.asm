@@ -113,23 +113,6 @@ get_time_spi
 	sta	jaar
 	rts
 
-bcd_output
-
-	pshs	a,b		;Bewaar A en B
-	tfr     a,b             ;Copy A naar B
-	lsra                    ;Shift hoger nibble 4 bits naar rechts
-	lsra
-	lsra
-	lsra
-	ora     #'0'		;Tel er '0' bij op
-	jsr     ot		;Print het nibble
-	tfr     b,a
-	anda	#$f		;Haal lager nibble
-	ora	#'0'		;Tel er '0' bij op
-	jsr	ot		;Print het nibble
-	puls	a,b		;Haal A en B weer terug
-	rts
-
 mesgot	pshs	b
 	tsta
 	beq	mesdi
@@ -148,7 +131,7 @@ pdate	jsr	get_time_spi
 	ldx	#dag_tabel
 	jsr	mesgot
 	lda	dag
-	jsr	bcd_output
+	jsr	byteot
 	lda	maand
 	cmpa	#$10
 	bcs	nmonth
@@ -157,44 +140,43 @@ nmonth	deca
 	ldx	#maand_tabel
 	jsr	mesgot
 	lda	#eeuw
-	jsr	bcd_output
+	jsr	byteot
 	lda	jaar
-	jsr	bcd_output
+	jsr	byteot
 	lda	#space
 	jsr	ot
 	jsr	ot
-        lda     uur
-        jsr     bcd_output
-        lda     #':'
-        jsr     ot
-        lda     minuut
-        jsr     bcd_output
-        lda     #':'
-        jsr     ot
-        lda     sec
-        jsr     bcd_output
-	rts
+        lda	uur
+	jsr	byteot
+	lda	#':'
+	jsr	ot
+	lda	minuut
+	jsr	byteot
+	lda	#':'
+	jsr	ot
+	lda	sec
+	jmp	byteot
 
-dag_tabel       fcb     "zondag    ",0
-                fcb     "maandag   ",0
-                fcb     "dinsdag   ",0
-                fcb     "woensdag  ",0
-                fcb     "donderdag ",0
-                fcb     "vrijdag   ",0
-                fcb     "zaterdag  ",0
+dag_tabel	fcb	"Sunday    ",0
+		fcb	"Monday    ",0
+		fcb	"Tuesday   ",0
+		fcb	"Wednesday ",0
+		fcb	"Thursday  ",0
+		fcb	"Friday    ",0
+		fcb	"Saturday  ",0
 
-maand_tabel     fcb     " januari   ",0
-                fcb     " februari  ",0
-                fcb     " maart     ",0
-                fcb     " april     ",0
-                fcb     " mei       ",0
-                fcb     " juni      ",0
-                fcb     " juli      ",0
-                fcb     " augustus  ",0
-                fcb     " september ",0
-                fcb     " oktober   ",0
-                fcb     " november  ",0
-                fcb     " december  ",0
+maand_tabel	fcb	" January   ",0
+		fcb	" February  ",0
+		fcb	" March     ",0
+		fcb	" April     ",0
+		fcb	" May       ",0
+		fcb	" June      ",0
+		fcb	" July      ",0
+		fcb	" August    ",0
+		fcb	" September ",0
+		fcb	" October   ",0
+		fcb	" November  ",0
+		fcb	" December  ",0
 
 spi_ctr		rmb	1
 reg_pointer	rmb	1
