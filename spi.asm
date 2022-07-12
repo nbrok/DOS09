@@ -16,6 +16,16 @@ rdag		equ	$4
 rmaand		equ	$5
 rjaar		equ	$6
 
+spi_ctr		equ	$40
+reg_pointer	equ	spi_ctr+1
+uur		equ	reg_pointer+1
+minuut		equ	uur+1
+sec		equ	minuut+1
+wdag		equ	sec+1
+dag		equ	wdag+1
+maand		equ	dag+1
+jaar		equ	maand+1
+
 ;piaa bitmap software spi PORTA van pia board
 ;        B7    B6    B5    B4    B3    B2    B1    B0
 ;       CS04  CS03  CS02  CS01  MOSI  CS00  clck  MISO
@@ -24,6 +34,8 @@ initpia	lda	#%11111110	;Alle bits (poort A) zijn uitgang,
 	sta	piaad		;behalve bit 0
 	lda	#%11111111	;Alle bits (poort B) zijn uitgang.
 	sta	piabd
+	lda	#%11111110	;Alle CS lijnen moeten hoog zijn.
+	sta	piaa
 	rts
 
 spi_write
@@ -81,9 +93,9 @@ rd_lp	lda	piaa		;Genereer klok puls
 
 get_time_spi
 
-	lda	#rtsec
-	jsr	spi_write
-	jsr	spi_read
+	lda	#rtsec			;Set seconds register.
+	jsr	spi_write		;Send command.
+	jsr	spi_read		;Read the result.
 	sta	sec
 	lda	#rmin
 	jsr	spi_write
@@ -146,7 +158,7 @@ nmonth	deca
 	lda	#space
 	jsr	ot
 	jsr	ot
-        lda	uur
+timot	lda	uur
 	jsr	byteot
 	lda	#':'
 	jsr	ot
@@ -157,34 +169,27 @@ nmonth	deca
 	lda	sec
 	jmp	byteot
 
-dag_tabel	fcb	"Sunday    ",0
-		fcb	"Monday    ",0
-		fcb	"Tuesday   ",0
-		fcb	"Wednesday ",0
-		fcb	"Thursday  ",0
-		fcb	"Friday    ",0
-		fcb	"Saturday  ",0
+ptime	jsr	get_time_spi
+	bra	timot
 
-maand_tabel	fcb	" January   ",0
-		fcb	" February  ",0
-		fcb	" March     ",0
-		fcb	" April     ",0
-		fcb	" May       ",0
-		fcb	" June      ",0
-		fcb	" July      ",0
-		fcb	" August    ",0
-		fcb	" September ",0
-		fcb	" October   ",0
-		fcb	" November  ",0
-		fcb	" December  ",0
+dag_tabel	fcb	"Sun ",0
+		fcb	"Mon ",0
+		fcb	"Tue ",0
+		fcb	"Wed ",0
+		fcb	"Thu ",0
+		fcb	"Fri ",0
+		fcb	"Sat ",0
 
-spi_ctr		rmb	1
-reg_pointer	rmb	1
-uur		rmb	1
-minuut		rmb	1
-sec		rmb	1
-wdag		rmb	1
-dag		rmb	1
-maand		rmb	1
-jaar		rmb	1
+maand_tabel	fcb	" Jan ",0
+		fcb	" Feb ",0
+		fcb	" Mar ",0
+		fcb	" Apr ",0
+		fcb	" May ",0
+		fcb	" Jun ",0
+		fcb	" Jul ",0
+		fcb	" Aug ",0
+		fcb	" Sep ",0
+		fcb	" Oct ",0
+		fcb	" Nov ",0
+		fcb	" Dec ",0
 
