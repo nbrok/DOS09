@@ -7,7 +7,6 @@ FAT_sector		equ	0	;Begin van de FAT.
 DIR_len			equ	8	;Grootte van de root directory.
 FAT_len			equ	5	;Grootte van de FAT.
 bytes_sector		equ	512	;512 bytes per sector.
-sectors_block		equ	4	;4 sectoren per blok.
 max_sector		equ	2560	;1,3 MByte
 max_disks		equ	1
 
@@ -38,31 +37,15 @@ driveid		equ	$ec
 ;* Internal variables and buffer
 ;********************************
 
-lba2		fcb	$00
-lba1		fcb	$00
-lba0		fcb	$00
-sector_pointer	rmb	2
+lba2		equ	jaar+1
+lba1		equ	lba2+1
+lba0		equ	lba1+1
+d_ptr		equ	lba0+1
+sector_pointer	equ	d_ptr+2
 
 ;********************************
 ;* CF-card I/O routines
 ;********************************
-
-;****************************************************
-;* Error Initialising the CF Card
-;****************************************************
-
-cferr	ldb	cfstatusl
-	bitb	#$01		; Isolate the error bit
-	beq	erexit
-	ldx	#initerror
-	jsr	ott
-erexit	rts
-
-initerror
-
-	fcb	cr,lf,esc,"[31m","Error initialising CF-Card",esc,"[0m",cr,lf,0
-
-init	fcb	"Initialising CF-card",cr,lf,0
 
 ;****************************************************
 ;* Wait for CF Card ready when reading/writing to it
@@ -84,38 +67,6 @@ cmdwait	ldb	cfstatusl	; Read the status register
         bitb	#$c0		; Isolate the ready bit
         beq	cmdwait		; Wait for the bit to clear
         rts
-
-;********************************
-;* Initialise the CF Card
-;********************************
-
-initcf  ldx	#init
-	jsr	ott
-	ldx	#cfaddress
-	jsr	cmdwait
-	ldb	#$01		; Set 8-bit bus-width
-	stb	cffeature,x
-	bsr	cmdwait
-	ldb	#$ef
-	stb	cfcommand,x
-	jsr	cmdwait
-	ldb	#$82
-	stb	cffeature,x
-	ldb	#$ef
-	stb	cfcommand,x
-	jsr	cmdwait
-	ldb	#$e0		; Clear LBA3, set Master & LBA mode
-	stb	cflba3,x
-	ldb	#$01		; Read only one sector at a time.
-	stb	cfseccnt,x
-	ldb	lba0
-	stb	cflba0,x
-	ldb	lba1
-	stb	cflba1,x
-	ldb	lba2
-	stb	cflba2,x
-	jsr	datwait
-	rts
 
 ;****************************************************
 ;* Write a 512 bytes block of data 
@@ -275,14 +226,11 @@ putdbuf	pshs	x
 	puls	x
 	rts
 
-d_ptr	rmb	2
-
-info	fcb	"Found a CF card",cr,lf,$0
 serno	fcc	" Serial No.: "
 	fcb	$0
 firmrev	fcb	cr,lf,"Firmware Rev.: "
 	fcb	$0
-modelno	fcb	esc,"[33m",cr,lf,"Model No.: "
+modelno	fcb	cr,lf,"Model No.: "
 	fcb	$0
 lbasize	fcb	cr,lf,"LBA Size : "
 	fcb	$0
