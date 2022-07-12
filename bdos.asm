@@ -23,35 +23,37 @@
 ; file, in principe kan er net zo veel files geopend worden als er geheugen is,
 ; let wel op dat er geheugen over blijft voor de file!
 
-FCB_drive               equ     $13
-FCB_length              equ     $14
-FCB_block_pointer       equ     $16
-FCB_dir_entry           equ     $18
-FCB_DMA                 equ     $1a
-FCB_alloc_code          equ     $1c
-FCB_sect_count          equ     $1d
-FCB_cur_sect_ptr        equ     $1e
-FCB_length_ctr          equ     $20     ;Vanaf nu als tussenpointer in gebruik.
-FCB_mode                equ     $22
-FCB_dir_ptr             equ     $23
-FCB_drive_param_ptr     equ     $25
-FCB_delete_ptr          equ     $27     ;Temp pointers voor delete en random R/W.
-FCB_rnd_calc            equ     $27     ;Gelijk aan delete_ptr.
-FCB_rnd_sect            equ     $29
-FCB_rnd_rest            equ     $2b
-FCB_rnd_quotient        equ     $2d
+FCB_filename		equ	$0
+FCB_drive		equ	$13
+FCB_length		equ	$14
+FCB_block_pointer	equ	$16
+FCB_dir_entry		equ	$18
+FCB_DMA			equ	$1a
+FCB_alloc_code		equ	$1c
+FCB_sect_count		equ	$1d
+FCB_cur_sect_ptr	equ	$1e
+FCB_length_ctr		equ	$20	;Vanaf nu als tussenpointer in gebruik.
+FCB_mode		equ	$22
+FCB_dir_ptr		equ	$23
+FCB_drive_param_ptr	equ	$25
+FCB_delete_ptr          equ     $27	;Temp pointers voor delete en random R/W.
+FCB_rnd_calc            equ     $27	;Equals to delete_ptr.
+FCB_num_sect_ctr	equ	$29	;Number of sectors counter.
+FCB_rnd_sdefl		equ	$2b	;Flag used in open/create for opening file for write.
+FCB_rnd_quotient	equ	$2d
 
 ; Directory entry
 
-DIR_acces_code          equ     $13
-DIR_alloc_code          equ     $14
-DIR_length              equ     $17
-DIR_t_h                 equ     $19
-DIR_t_m                 equ     $1a
-DIR_t_s                 equ     $1b
-DIR_d_d                 equ     $1c
-DIR_d_m                 equ     $1d
-DIR_d_y                 equ     $1e
+DIR_filename		equ	$0
+DIR_acces_code		equ	$13
+DIR_alloc_code		equ	$14
+DIR_flength		equ	$17
+DIR_t_h			equ	$19
+DIR_t_m			equ	$1a
+DIR_t_s			equ	$1b
+DIR_d_d			equ	$1c
+DIR_d_m			equ	$1d
+DIR_d_y			equ	$1e
 
 ;************************************
 ;* Bdos routines
@@ -106,31 +108,29 @@ BDOS_function_error	equ	7
 random_function_error	equ	8
 
 ; *****************************************************
-; De dos functies.
-;	register organisatie in fdos INPUT.
-;	Alle registers worden gebruikt!
-
+; The dos functions.
+;	All register are used in the bdos functions.
+;	INPUT:
+;	A :=<character>.
 ;	B :=<function_code>.
-;	IX:=<FCB> of IX:=<16 bits word>
-
-;	register organisatie in fdos OUTPUT.
-
-;	IX:=<16 bits_number> of <FCB>.
+;	IX:=<FCB> or IX:=<16 bits word>
+;
+;	OUTPUT:
+;	IX:=<16 bits_number> or <FCB>.
 ;	IY:=<Entry address> IX:=<table address>.
+;	A :=<character>.
 ; ******************************************************
 
-fdos	pshs	a
-	cmpb	#max_fun
-	bcc	fun_err
-	lslb
-	clra
-	std	buffer
-	ldd	#fdos_table
-	addd	buffer
-	exg	d,y
-	ldy	0,y
-	puls	a
-	jsr	0,y
+fdos	pshs	a		;Save A.
+	cmpb	#max_fun	;Bigger then max functions?
+	bcc	fun_err		;YES? Then error.
+	lslb			;Multiply B with two.
+	clra			;Clear A to get a 16 bit number in D.
+	addd	#fdos_table	;Add begin of function table to D.
+	exg	d,y		;Get D in Y and Y in D.
+	ldy	0,y		;In IY address of bdos function.
+	puls	a		;Restore A.
+	jsr	0,y		;Call the function
 	rts
 
 fun_err
@@ -141,45 +141,45 @@ fun_err
 	rts
 
 fdos_table
-
-	fdb	external_warm			;1
-	fdb	set_dma				;2
-	fdb	select_absolute_sector_fdos	;3
-	fdb	read_sector			;4
-	fdb	write_sector			;5
-	fdb	restore				;6
-	fdb	write				;7
-	fdb	read				;8
-	fdb	open_file			;9
-	fdb	create_file			;10
-	fdb	close_file			;11
-	fdb	rename_file			;12
-	fdb	delete_file			;13
-	fdb	decimal_ot			;14
-	fdb	disk_param			;15
-	fdb	read_fat_s			;16
-	fdb	write_fat_s			;17
-	fdb	get_fat_address			;18
-	fdb	make_external_fcb		;19
-	fdb	search_first			;20
-	fdb	search_next			;21
-	fdb	line_input			;22
-	fdb	zoek_deleted_first		;23
-	fdb	zoek_deleted_next		;24
-	fdb	write_dir_function		;25
-	fdb	select_current_disk		;26
-	fdb	get_current_disk		;27
-	fdb	get_dos_version			;28
-	fdb	decimal_ot32			;29
-	fdb	random_read			;30
-	fdb	random_write			;31
-	fdb	init_terug			;32
-	fdb	get_end_of_mtpa			;33
-	fdb	join_file			;34
-	fdb	get_batch_parameters		;35
-	fdb	get_dos_begin			;36
-	fdb	conin				;37
-	fdb	conot				;38
+;		Fuction				Function number.
+	fdb	external_warm			;0
+	fdb	set_dma				;1
+	fdb	select_absolute_sector_fdos	;2
+	fdb	read_sector			;3
+	fdb	write_sector			;4
+	fdb	bdget_time			;5
+	fdb	write				;6
+	fdb	read				;7
+	fdb	open_file			;8
+	fdb	create_file			;9
+	fdb	close_file			;10
+	fdb	rename_file			;11
+	fdb	delete_file			;12
+	fdb	decimal_ot			;13
+	fdb	disk_param			;14
+	fdb	read_fat_s			;15
+	fdb	write_fat_s			;16
+	fdb	get_fat_address			;17
+	fdb	make_external_fcb		;18
+	fdb	search_first			;19
+	fdb	search_next			;20
+	fdb	line_input			;21
+	fdb	zoek_deleted_first		;22
+	fdb	zoek_deleted_next		;23
+	fdb	write_dir_function		;24
+	fdb	select_current_disk		;25
+	fdb	get_current_disk		;26
+	fdb	get_dos_version			;27
+	fdb	decimal_ot32			;28
+	fdb	random_read			;29
+	fdb	random_write			;30
+	fdb	init_terug			;31
+	fdb	get_end_of_mtpa			;32
+	fdb	join_file			;33
+	fdb	get_batch_parameters		;34
+	fdb	get_dos_begin			;35
+	fdb	conin				;36
+	fdb	conot				;37
 
 fill_internal_fcb
 
@@ -420,7 +420,6 @@ read_FAT_loop
 	std	dsector
 	jsr	select_absolute_sector
 	jsr	read_sector
-	bcc	read_FAT_ok
 
 read_FAT_ok
 
@@ -438,7 +437,6 @@ write_FAT
 
 write_FAT0
 
-	jsr     restore
 	ldx     current_FAT
 	jsr     set_dma
 	lda	#fat_len
@@ -450,9 +448,6 @@ write_FAT_loop
 	std	dsector
 	jsr	select_absolute_sector
 	jsr	write_sector
-	bcc	write_FAT_ok
-	jsr	fatal_error
-	bra	write_FAT0
 
 write_FAT_ok
 
@@ -479,9 +474,6 @@ dirrd_loop
 	std	dsector
 	jsr	select_absolute_sector
 	jsr	read_sector
-	bcc	read_dir_ok
-	jsr	fatal_error
-	bra	read_directory0
 
 read_dir_ok
 
@@ -508,9 +500,6 @@ dirwr_loop
 	std	dsector
 	jsr	select_absolute_sector
 	jsr	write_sector
-	bcc	write_dir_ok
-	jsr	fatal_error
-	bra	write_directory0
 
 write_dir_ok
 
@@ -521,42 +510,6 @@ write_dir_ok
 dir_ex  andcc	#$fe
 	puls	x,y
 	rts
-
-fatal_error
-
-	ldx	#f_error_txt
-	jsr	ott
-	jsr	in
-	jsr	ot
-	pshs	a
-	jsr	crlf
-	puls	a
-	cmpa	#'Y'
-	beq	dfag
-	cmpa	#'y'
-	beq	dfag
-	bra	fatal_error_exit
-dfag	rts
-
-fatal_error_exit
-
-	clra
-
-reset_loop
-
-	pshs	a
-	jsr	select_drive
-	clr	file_opened,y
-	puls	a
-	inca
-	cmpa	#max_drive
-	bne	reset_loop
-	jmp	dos_reentry
-
-F_error_txt
-
-	fcb	esc,"[31m","Directory and/or FAT R/W failed.",cr,lf
-	fcb	"Retry? (Y/N) : ",esc,"[0m",0
 
 decimal_ot
 
@@ -595,7 +548,7 @@ d32l2	jsr	ott
 
 get_dos_version
 
-	ldx	#0100		;(BCD) 1.0
+	ldx	#dosversion
 	clra
 	rts
 
@@ -608,8 +561,6 @@ init_terug
 
 	jsr	crlf
 	jmp	dosini
-
-restore	rts
 
 zoek_deleted_first
 
@@ -668,10 +619,12 @@ fserr	orcc	#1
 
 join_file
 
-	jsr	open_file
+	bsr	open_file
 	bne	fserr
 	ldd	FCB_length,x
-	std	FCB_rnd_sect,x
+	std	FCB_num_sect_ctr,x
+	lda	#$ff
+	sta	FCB_rnd_sdefl,x
 	clra
 	rts
 
@@ -693,10 +646,11 @@ open_file_ok
 	puls	x
         lda	DIR_alloc_code,y
 	sta	FCB_alloc_code,x
-	ldd	DIR_length,y
+	ldd	DIR_flength,y
 	std	FCB_length,x
-	clr	FCB_rnd_sect,x
-	clr	FCB_rnd_sect+1,x
+	clr	FCB_num_sect_ctr,x
+	clr	FCB_num_sect_ctr+1,x
+	clr	FCB_rnd_sdefl,x
 	clr	FCB_mode,x
 	clr	FCB_block_pointer,x
 	clr	FCB_block_pointer+1,x
@@ -773,9 +727,11 @@ wend	exg	d,y
 	exg	d,y
 	ldd	#0
 	std	FCB_length,x
-	std	DIR_length,y
+	std	DIR_flength,y
 	std	FCB_block_pointer,x
-	std	FCB_rnd_sect,x
+	std	FCB_num_sect_ctr,x
+	lda	#$ff			;file created, so no search for old
+	sta	FCB_rnd_sdefl,x		;entries, when yes then already done.
 	jsr	copy_filename_to_directory
 	jsr	get_time
 	jsr	write_directory
@@ -831,11 +787,11 @@ close_file_ok
 	ldx     FCB_drive_param_ptr,x
 	dec     file_opened,x
 	puls	x
-	ldy	FCB_dir_entry,x         ;Haal directoryentry.
-	lda	FCB_mode,x              ;Haal mode: 0=read $ff=write.
-	bpl     do_nothing_w_d_f        ;Close een READ operatie.
+	ldy	FCB_dir_entry,x         ;Get directory entry.
+	lda	FCB_mode,x              ;Get mode: 0=read $ff=write.
+	bpl     do_nothing_w_d_f        ;Close a READ operation.
 	ldd     FCB_length,x
-	std     DIR_length,y
+	std     DIR_flength,y
 	lda	FCB_alloc_code,x
 	sta	DIR_alloc_code,y
 	jsr	get_time
@@ -885,7 +841,7 @@ rename_loop
 	pshs	y
 	pshs	y
 	puls	x
-	ldy	#sectorbuffer         ;Tijdelijk hier neerzetten.
+	ldy	#sectorbuffer         ;Use this as temporary place to store.
 	jsr	copy_filename_to_directory
 	ldx	i_fcb_ptr3
 	lda	FCB_drive,x
@@ -921,7 +877,7 @@ rename_entry
 
 	pshs	y
 	pshs	x
-	ldb	#19			;16 bytes voor filenaam, 3 bytes voor extend.
+	ldb	#19			;16 bytes for filename, 3 bytes for extend.
 
 copy_loop_ren
 
@@ -937,6 +893,27 @@ clrn1	leax	1,x
 	puls	y
 	rts
 
+bdget_time
+
+	jsr	get_time_spi
+	lda	sec
+	sta	0,x
+	lda	minuut
+	sta	1,x
+	lda	uur
+	sta	2,x
+	lda	wdag
+	sta	3,x
+	lda	dag
+	sta	4,x
+	lda	maand
+	sta	5,x
+	lda	#eeuw
+	sta	6,x
+	lda	jaar
+	sta	7,x
+	rts
+
 get_time
 
 	pshs	x
@@ -944,18 +921,18 @@ get_time
 	jsr	get_time_spi
 	puls	y
 	lda	sec
-	sta	DIR_t_s,y		;Seconde
+	sta	DIR_t_s,y		;Second.
 	lda	minuut
-	sta	DIR_t_m,y		;Minuut
+	sta	DIR_t_m,y		;Minute.
 	lda	uur
-	sta	DIR_t_h,y		;Uur
+	sta	DIR_t_h,y		;hour.
 	lda	dag
-	sta	DIR_d_d,y		;Dag
+	sta	DIR_d_d,y		;Day.
 	lda	maand
-	sta	DIR_d_m,y		;Maand
-	lda	#eeuw			;dit is de eeuw codebyte.
+	sta	DIR_d_m,y		;Month.
+	lda	#eeuw			;This is the century codebyte.
 	ldb	jaar
-	std	DIR_d_y,y		;Eeuw+Jaar
+	std	DIR_d_y,y		;Century+year.
 	puls	x
         rts
 
@@ -1028,7 +1005,7 @@ search_ok
 
 snuffel_in_entry
 
-	ldb	#19			;16 bytes filenaam, 3 bytes extend.
+	ldb	#19			;16 bytes filename, 3 bytes extend.
 	ldx	internal_ptr1
 	pshs	y
 
@@ -1048,12 +1025,12 @@ is_equal
 	leay	1,y
 	decb
 	bne	snuffel
-	puls	y			;IY staat op begin van de gevonden entry.
+	puls	y			;IY points at begin of found entry.
 	pshs	y
 	exg	d,y
 	addd	#dir_entry_len
-	ldx	internal_ptr1           ;IX staat op begin van FCB.
-	std	FCB_dir_ptr,x           ;Bewaar next entry in pointer.
+	ldx	internal_ptr1           ;IX points at begin of FCB.
+	std	FCB_dir_ptr,x           ;Save next entry in pointer.
 	puls	y
 	andcc	#$fc
 	rts
@@ -1076,14 +1053,14 @@ zoek_next_entry
 
 entry_not_found
 
-	ldx	internal_ptr1		;IX staat op begin van FCB.
-	orcc	#1			;IY staat op schone entry.
+	ldx	internal_ptr1		;IX points to begin of FCB.
+	orcc	#1			;IY points to clean entry.
         andcc	#$fd
         rts
 
 directory_full
 
-	ldx	internal_ptr1           ;IX staat op begin van FCB.
+	ldx	internal_ptr1           ;IX points to begin of FCB.
 	orcc	#3
 	rts
 
@@ -1129,7 +1106,7 @@ deleted_file_found
 	puls	x
 	puls	x
 	andcc	#$fe
-	rts			;IY staat op deleted entry.
+	rts			;IY points to deleted entry.
 
 delete_old_allocation_codes
 
@@ -1159,7 +1136,7 @@ copy_filename_to_directory
 
 	pshs	y
 	pshs	x
-	ldb	#19			;16 bytes voor filenaam, 3 bytes voor extend.
+	ldb	#19			;16 bytes for filenamw, 3 bytes fo extend.
 
 copy_loop
 
@@ -1219,14 +1196,14 @@ crre	orcc	#1
 random_error
 
 	lda	#random_function_error
-        bra	crre
+	bra	crre
 
 random_read
 
 	jsr	check_file_opened
 	beq	cant_read_random
 	ldd	FCB_length,x
-	cmpd	FCB_rnd_sect,x
+	cmpd	FCB_num_sect_ctr,x
 	beq	random_error
 	bcs	random_error
 	pshs	a
@@ -1237,7 +1214,7 @@ random_read
 
 random_read_l0
 
-	jsr	search_for_allocated_block
+	jsr	search_for_allocated_sector
 	bcs	cant_read_random
 	ldd	FCB_cur_sect_ptr,x
 	jsr	select_absolute_sector
@@ -1264,57 +1241,62 @@ cant_write_random
 
 random_full
 
-	ldd	FCB_length_ctr,x
-	std	FCB_length,x
+;	ldd	FCB_length_ctr,x
+;	std	FCB_length,x
 	lda	#DISK_full_error
 	orcc	#1
 	rts
 
 ;Elke byte in de FAT is gelijk aan een sector op disk. Het eerste byte (sector)
-;wordt gebruikt als eerste vrije fat code. (1-FF)
+;wordt gebruikt als eerste vrije fat code. (1-FE) FF betekent einde van de tabel. 
 ;absolute sector = (fat_buffer+rnd_sect)-fat_buffer
 
 random_write
 
 	jsr	check_file_opened
 	beq	cant_write_random
-	pshs	a
 	lda	FCB_mode,x
 	ora	#$81
 	sta	FCB_mode,x
-	puls	a
-;	bset    FCB_mode,x,$81
+	lda	FCB_rnd_sdefl,x			;Check if SAC already cleared.
+	bne	random_write_new		;Yes, then skip clearing SAC.
+	jsr	search_for_allocated_sector	;Look for existing SAC of file.
+	bcs	random_write_new		;Not found? Skip clearing SAC. 
+	ldb	FCB_alloc_code,x		;Get SAC of file.
+	jsr	delete_old_allocation_codes	;Clear the SAC of file.
 
-random_write_l1
+random_write_new
 
-	lda	FCB_alloc_code,x
-	jsr	search_for_unallocated_block
-	bcs	random_full
+	lda	#$ff				;Set sdefl to indicate that
+	sta	FCB_rnd_sdefl,x			;SAC already is resetted and
+	lda	FCB_alloc_code,x		;handle file as a new file.
+	jsr	search_for_unallocated_sector	;Search for free sector.
+	bcs	random_full			;When carry=1, disk is full!
 
 rnd_over_sw
 
-	ldd	FCB_cur_sect_ptr,x
-	jsr	select_absolute_sector
-	pshs	x,y,d
-	pshs	x
-	ldx	FCB_dma,x
-	jsr	set_dma
-	puls	x
-	jsr	write_sector
-	puls	x,y,d
-	bcc	end_random_write
-	lda	#r_w_failed_error
+	ldd	FCB_cur_sect_ptr,x		;Get current sector position.
+	jsr	select_absolute_sector		;Set the sector.
+	pshs	x,y,d				;Save X,Y and D.
+	pshs	x				;Save X.
+	ldx	FCB_dma,x			;Get DMA address.
+	jsr	set_dma				;Set it.
+	puls	x				;Restore X.
+	jsr	write_sector			;Write the sector.
+	puls	x,y,d				;Restore X,Y and D.
+	bcc	end_random_write		;Check if all went OK.
+	lda	#r_w_failed_error		;No, then write failed.
         orcc	#1
 	rts
 
 end_random_write
 
-	ldd	FCB_rnd_sect,x
-	addd	#1
+	ldd	FCB_num_sect_ctr,x		;Yes, get number of sectors.
+	addd	#1				;Increment it by one.
 	cmpd	FCB_length,x
 	bcs	no_length_update
 	beq	no_length_update
-	std	FCB_length,x
+	std	FCB_length,x			;Update file length
 
 no_length_update
 
@@ -1338,9 +1320,9 @@ read	jsr	random_read
 
 exit_write
 
-	ldd	FCB_rnd_sect,x
+	ldd	FCB_num_sect_ctr,x
 	addd	#1
-	std	FCB_rnd_sect,x
+	std	FCB_num_sect_ctr,x
 	ldd	FCB_DMA,x
 	addd	#bytes_sector
 	std	FCB_DMA,x
@@ -1352,7 +1334,6 @@ write	jsr	random_write
 	bra	exit_write
 
 search_for_allocated_sector
-search_for_allocated_block
 
 	ldd	current_fat
 	addd	FCB_block_pointer,x
@@ -1381,13 +1362,9 @@ no_more_entry
 	orcc	#1
 	rts
 
-search_for_unallocated_block
 search_for_unallocated_sector
 
 	pshs	a
-	ldy	current_FAT
-	bra	search_un_al_loop
-
 	ldy	current_FAT
 
 search_un_al_loop
@@ -1706,6 +1683,8 @@ commands_list
 	fdb	mon
 	fcb	"DATE",$80
 	fdb	pdate
+	fcb	"TIME",$80
+	fdb	ptime
 	fcb	"SAVE",$a0
 	fdb	save_file
 	fcb	"L","S"+$80
@@ -1720,11 +1699,111 @@ commands_list
 	fdb	cdelete
 	fcb	"TYPE",$a0
 	fdb	ctype
+	fcb	"CAT",$a0
+	fdb	ctype
 	fcb	"HEXLOAD",$80
 	fdb	cloadser1
+	fcb	"TEXTLOAD",$80
+	fdb	cloadtxt
+	fcb	"GOTO",$a0
+	fdb	cgoto
 	fdb	0,0
 
 mon	jmp	monitor		;Warm return to monitor
+
+cloadtxt
+
+	pshs	x
+	ldx	#ascltxt
+	jsr	ott
+	ldx	#mtpa
+cldtl1	jsr	in
+	cmpa	#$1a
+	beq	cldtr
+	jsr	ot
+	cmpa	#lf
+	beq	cldtl1
+	sta	0,x+
+	bra	cldtl1
+cldtr	sta	0,x+
+	sta	0,x+
+	jsr	crlf
+	jsr	xot
+	jsr	crlf
+	puls	x
+	rts
+
+ascltxt	fcb	cr,lf,"Ready to load text.",cr,lf,0
+
+cgoto	jsr	eet_spaties_op
+	lda	0,y
+	lbeq	missing_parameter
+	bsr	hex_in
+	pshs	x
+	jsr	eet_spaties_op
+	sty	interpreter_pointer
+	puls	x
+	jsr	0,x
+	jmp	dos_reentry
+
+hex_in	ldd	#0
+	std	decimal_buffer
+	lda	0,y+
+	cmpa	#'$'
+	bne	hexerr
+	sty	internal_ptr1
+
+hex_in_loop
+
+	lda	0,y
+	cmpa	#'0'
+	bcs	hex_in_end
+	cmpa	#'9'+1
+	bcc	check_a__f
+	anda	#$f
+hex_nxt	pshs	a
+	ldd	decimal_buffer
+	lslb
+	rola
+	lslb
+	rola
+	lslb
+	rola
+	lslb
+	rola
+	std	decimal_buffer
+	puls	b
+	clra
+	addd	decimal_buffer
+	std	decimal_buffer
+	leay	1,y
+	bra	hex_in_loop
+
+check_a__f
+
+	tfr	a,b
+	jsr	conluc1
+	cmpb	#'A'
+	bcs	hex_in_end
+	cmpb	#'F'+1
+	bcc	hex_in_end
+	tfr	b,a
+	anda	#$f
+	adda	#$9
+	bra	hex_nxt
+
+hex_in_end
+
+	ldx	decimal_buffer
+	cmpy	internal_ptr1
+	beq	hexerr
+	rts
+
+hexerr	ldx	#hexerrtxt
+	jsr	ott
+	jmp	dos_reentry
+
+hexerrtxt	fcb	esc,"[31m","Hexadecimal number expected.",esc,"[0m",cr,lf,0
 
 cloadser1
 
@@ -1808,8 +1887,7 @@ type_loop2
 	bne	tp1
 	lda	#lf
 	jsr	ot
-tp1
-	cmpx	#sectorbuffer+bytes_sector
+tp1	cmpx	#sectorbuffer+bytes_sector
 	bne	type_loop2
 	bra	type_loop1
 
@@ -1942,7 +2020,7 @@ get_file_length_loop
 	beq	ready_lengths
 	tsta
 	bmi	get_file_length_next	;Minus? Then it is a deleted file
-	ldd	DIR_length,x		;Positive? Then get length of file
+	ldd	DIR_flength,x		;Positive? Then get length of file
 	addd	i_fcb_ptr3		;Add it to the total
 	std	i_fcb_ptr3		;and save it
 
@@ -2014,7 +2092,7 @@ d_n_entry
 	bita	#%00000001
 	beq	kl5
 	pshs	x
-	ldd	DIR_length,x
+	ldd	DIR_flength,x
 	lslb
 	rola
 	ldx	#decimal_buffer
@@ -2281,6 +2359,47 @@ overwritten
 
 overwr	fcb	esc,"[31m","File already exists.",esc,"[0m",0
 
+check_extend
+
+	pshs	d,x,y
+	ldy	#decimal_buffer
+	lda	16,x
+	sta	0,y
+	lda	17,x
+	sta	1,y
+	lda	18,x
+	sta	2,y
+	clr	3,y
+	ldx	#extend_exe
+	jsr	compare_token
+	tsta
+	beq	chextne
+	ldy	#decimal_buffer
+	ldx	#extend_com
+	jsr	compare_token
+	tsta
+	beq	chextne
+	ldy	#decimal_buffer
+	ldx	#extend_cmd
+	jsr	compare_token
+	tsta
+	beq	chextne
+	ldy	#decimal_buffer
+	ldx	#extend_sys
+	jsr	compare_token
+	beq	chextne
+checter	puls	d,x,y
+	lda	#$ff
+	rts
+chextne	puls	d,x,y
+	clra
+	rts
+
+extend_cmd	fcb	$3,"CMD"
+extend_sys	fcb	$3,"SYS"
+extend_com	fcb	$3,"COM"
+extend_exe	fcb	$3,"EXE"
+
 execute_from_disk
 
 	jsr	make_internal_fcb1
@@ -2297,18 +2416,20 @@ continue_with_execute
 	bcc	cwe01
 	jmp	illegal_parameter
 cwe01	ldx	#internal_fcb1
+	jsr	check_extend
+	beq	cwe02
 	lda	#'E'
 	sta	16,x
 	lda	#'X'
 	sta	17,x
 	lda	#'E'
 	sta	18,x
-	ldd	#mtpa
+cwe02	ldd	#mtpa
 	std	FCB_dma,x
 	jsr	open_file
 	cmpa	#file_not_found_error
 	beq	exec_not_found
-	ldd	DIR_length,y
+	ldd	DIR_flength,y
 	tfr	b,a
 	clrb
 	addd	#mtpa
@@ -2339,7 +2460,8 @@ load_ready
 	sty	interpreter_pointer
 	exg	d,y
 	exg	d,x
-	jmp	mtpa
+	jsr	mtpa
+	jmp	dos_reentry
 
 missing_filename
 
@@ -2443,8 +2565,10 @@ dir_end_txt
 extendtable
 
 	fcb	"EXE",9,esc,"[1;32m",0
+	fcb	"CMD",7,esc,"[32m",0
+	fcb	"COM",7,esc,"[32m",0
 	fcb	"BAS",9,esc,"[1;33m",0
-	fcb	"PAS",9,esc,"[1;33m",0
+	fcb	"SIL",9,esc,"[1;34m",0
 	fcb	"SYS",7,esc,"[32m",0
 	fcb	"ASM",9,esc,"[1;36m",0
 	fcb	"SRC",9,esc,"[1;36m",0
