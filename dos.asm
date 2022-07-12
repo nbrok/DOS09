@@ -10,6 +10,7 @@ dos_entry_vect  equ     $80
 end_of_ram	equ	$70
 dma_register	equ	$72
 buffer		equ	$fe
+dosversion	equ	$0103		;BCD 01.03
 
 	org	dosbegin
 
@@ -27,46 +28,38 @@ sect_ctr1	rmb	1
 	include "cfcard.asm"
 	include "bdos.asm"
 
-nocard	fcb	cr,lf,"No card present, returning to monitor.",cr,lf,0
-
 dosinittxt
 
-	fcb	cr,lf,"Dos09 version 1.0 for the 6809 32 Kbytes memory",cr,lf
-	fcb	"working on Scrumpel 8d.",cr,lf
+	fcb	cr,lf,"Dos09 version ",0," for the 6809 working with 32 Kbytes memory "
+	fcb	"on Scrumpel 8d.",cr,lf
 	fcb	"(c) 2022 by N.L.P. Brok (PE1GOO) the Netherlands.",cr,lf,0
 
 mtpa_info_text
 
 	fcb	"TPA := [ ",0
-	fcb	" ]",cr,lf,lf,0
+	fcb	" ]",cr,lf,lf,esc,"[33mCF card info:",0
 
 initdos	sts	stack_pointer
 dosini	lds	stack_pointer
-	jsr	initpia		;Initialise PIA for RTC
+	jsr	initpia		;Initialise PIA for RTC.
 	clr	current_drive
 	lda	#$7e
 	sta	dos_entry_vect
 	ldd	#fdos
 	std	dos_entry_vect+1
-	ldx	#cfaddress
-	lda	#5		;Test if card is present by writing
-	sta	cfseccnt,x	;into sector count register from CF-card
-	cmpa	cfseccnt,x	;Write succesfull? Then card present.
-	beq	cardpresent
-	ldx	#nocard
-	jsr	ott
-	jmp	monitor
-
-cardpresent
-
-	ldx	#info
-	jsr	ott
-	jsr	initcf		;Initialise CF-card
-	jsr	cfinfo		;Get card info
 	ldd	#dosbegin
 	subd	#1
 	std	end_of_ram
 	ldx	#dosinittxt
+	jsr	ott
+	ldd	#dosversion	;Get version number of OS.
+	ora	#$30		;Is BCD, so OR with $30 to get ASCII digit.
+	jsr	ot
+	lda	#'.'
+	jsr	ot
+	tfr	b,a
+	ora	#$30		;Is BCD, so OR with $30 to get ASCII digit.
+	jsr	ot
 	jsr	ott
 	ldx	#mtpa_info_text
 	jsr	ott
@@ -83,6 +76,9 @@ cardpresent
 	jsr	xot
 	puls	x
 	jsr	ott
+	jsr	cfinfo		;Get card info
+	jsr	crlf
+	jsr	crlf
 	clr	lba0
 	clr	lba1
 	clr	lba2
