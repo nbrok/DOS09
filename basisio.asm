@@ -7,25 +7,15 @@ lf		equ	$0a		;Line feed
 mbyte		equ	$10
 eof		equ	$1a
 esc		equ	$1b		;Escape character
+bin_ctr		equ	$13
+divtenr		equ	$14
+crc		equ	$18
+teller		equ	$19
+decimal_buffer	equ	sector_pointer+2
 
 ;****************************************************
-;* Ansi codes for character colours
+;* Ansi code for character default colour
 ;****************************************************
-
-rood	fcb	esc,"[31m",0	;Dark red
-blauw	fcb	esc,"[34m",0	;Dark blue
-groen	fcb	esc,"[32m",0	;Dark green
-geel	fcb	esc,"[33m",0	;Dark yellow
-wit	fcb	esc,"[37m",0	;Normal wite
-magenta	fcb	esc,"[35m",0	;Dark magenta
-cyaan	fcb	esc,"[36m",0	;Dark cyan
-hrood	fcb	esc,"[1;31m",0	;Light red
-hblauw	fcb	esc,"[1;34m",0	;Light blue
-hgroen	fcb	esc,"[1;32m",0	;Light green
-hgeel	fcb	esc,"[1;33m",0	;Light yellow
-hwit	fcb	esc,"[1;37m",0	;Bright white
-hmagent	fcb	esc,"[1;35m",0	;Light magenta
-hcyaan	fcb	esc,"[1;36m",0	;light cyan
 
 defcol	fcb	esc,"[0m",0	;Go back to default colour
 
@@ -91,10 +81,10 @@ add0	suba	#'0'
 gnerr	orcc	#1		;Set carry
 	rts
 
-bytein	bsr	getnibble	;Get high nibble
+bytein	bsr	getnibble	;Get high nibble.
 	bcs	bytein
 	sta	mbyte
-bytin1	bsr	getnibble	;Get low nibble
+bytin1	bsr	getnibble	;Get low nibble.
 	bcs	bytin1
 	tfr	a,b
 	lda	mbyte
@@ -103,31 +93,30 @@ bytin1	bsr	getnibble	;Get low nibble
 	lsla
 	lsla
 	pshs	b
-	adda	,s+		;Combine both to byte in A
+	adda	,s+		;Combine both to byte in A.
 	rts
 
-byteot	pshs	a,b		;Save A and B
+byteot	pshs	a,b		;Save A and B.
 	sta	mbyte		;Save hex-byte.
-	ldb	#2		;Print two nibbles
+	ldb	#2		;Print two nibbles.
 	lsra
 	lsra
 	lsra
 	lsra
-bytlp	anda	#$0f		;Mask lower byte
-	andcc	#%11011100	;Reset some flags in CC to do a good DAA 
-        daa			;Decimal adjust
+bytlp	anda	#$0f		;Mask lower byte.
+	andcc	#%11011100	;Reset some flags in CC to do a good DAA.
+        daa			;Decimal adjust.
         adda	#$f0
         adca	#$40
         bsr	ot		;Print the HEX digit.
-        lda	mbyte		;Restore hex-byte
+        lda	mbyte		;Restore hex-byte.
         decb
-        bne	bytlp		;Get next nibble
-	puls	a,b		;Restore A and B
+        bne	bytlp		;Get next nibble.
+	puls	a,b		;Restore A and B.
 	rts
 
 decimal_fstring	rmb	12
 decimal_string	rmb	12
-decimal_buffer	rmb	4
 
 dec32_ot
 
@@ -239,43 +228,39 @@ trl1	jsr	in
 	bne	trl1
 	jsr	ot
 	jsr	bytein
-	beq	trend		;A :00 means end of transfer
-	sta	teller		;Store first byte in counter (number of bytes)
-	clr	crc		;Clear CRC
-	jsr	chksum		;Calculate checksum
-	jsr	bytein		;Get address high byte
-	sta	buffer		;Store it in buffer (= load address)
-	jsr	chksum		;Calculate checksum
-	jsr	bytein		;Get Address low byte
-	sta	buffer+1	;Store it in buffer
-	jsr	chksum		;Calculate checksum
-	ldx	buffer		;Get load address into X
-	jsr	bytein		;Get control byte
-	jsr	chksum		;Calculate checksum
-trl0	jsr	bytein		;Get byte to load
-	sta	0,x+		;Store data
-	jsr	chksum		;Calculate checksum
-	dec	teller		;Decrement counter
-	bne	trl0		;Get next byte until all done
-	jsr	bytein		;Get checksum
+	beq	trend		;A :00 means end of transfer.
+	sta	teller		;Store first byte in counter (number of bytes).
+	clr	crc		;Clear CRC.
+	jsr	chksum		;Calculate checksum.
+	jsr	bytein		;Get address high byte.
+	sta	buffer		;Store it in buffer (= load address).
+	jsr	chksum		;Calculate checksum.
+	jsr	bytein		;Get Address low byte.
+	sta	buffer+1	;Store it in buffer.
+	jsr	chksum		;Calculate checksum.
+	ldx	buffer		;Get load address into X.
+	jsr	bytein		;Get control byte.
+	jsr	chksum		;Calculate checksum.
+trl0	jsr	bytein		;Get byte to load.
+	sta	0,x+		;Store data.
+	jsr	chksum		;Calculate checksum.
+	dec	teller		;Decrement counter.
+	bne	trl0		;Get next byte until all done.
+	jsr	bytein		;Get checksum.
 	nega
-	cmpa	crc		;Check checksum
-	beq	transfer_in	;Correct? Get next line
-chkerr	ldx	#transfererr	;Print CRC error message
+	cmpa	crc		;Check checksum.
+	beq	transfer_in	;Correct? Get next line.
+chkerr	ldx	#transfererr	;Print CRC error message.
 	jsr	ott
-	orcc	#1		;Set the carry
+	orcc	#1		;Set the carry.
 	rts
-trend	jsr	in		;Wait for CR
+trend	jsr	in		;Wait for CR.
 	cmpa	#cr
 	bne	trend
-	andcc	#$fe		;Reset the carry
+	andcc	#$fe		;Reset the carry.
 	rts
 
 transfererr
 
 	fcb	esc,"[31m",cr,lf,"Intel-hex checksum error.",esc,"[0m",0
 
-bin_ctr	rmb	1
-divtenr	rmb	1
-crc	rmb	1
-teller	rmb	1
