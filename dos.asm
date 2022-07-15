@@ -1,8 +1,13 @@
 	cpu	6809
 
+;This program must be placed into RAM, altough some parts can be placed in ROM
+
 dosbegin	equ	$8000
 monitor		equ	$c01b
 mtpa		equ	$0100
+DIR_len		equ	8		;Size of root directory.
+FAT_len		equ	5		;Size of SAT.
+bytes_sector	equ	512		;512 bytes per sector.
 
 ;Entry vector for dos functions
 
@@ -14,15 +19,7 @@ dosversion	equ	$0103		;BCD 01.03
 
 	org	dosbegin
 
-	jmp	initdos
-
-auto_start_flag	fcb	0
-line		rmb	81
-current_fat	rmb	2
-current_dir	rmb	2
-sect_ctr1	rmb	1
-
-
+	include	"dosvar.asm"
 	include "basisio.asm"
 	include	"spi.asm"
 	include "cfcard.asm"
@@ -86,7 +83,5 @@ dosini	lds	stack_pointer
 	jsr	select_drive	;open
 	clr	file_opened,y
 	jmp	dos_reentry
-
-sectorbuffer	rmb	512	;Sectorbuffer on end of OS 
 
 	end
