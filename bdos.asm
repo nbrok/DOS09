@@ -70,30 +70,8 @@ dir_entry_len	equ	32
 max_drive	equ	1
 i_d_p		equ	4
 
-stack_pointer		rmb	2
-interpreter_pointer	rmb	2
-ctr			rmb	1
-temp_t			rmb	2
 max_fun			equ	39
-file_opened		equ	6
-temp2			rmb	1
-dsector			rmb	2
-rest			rmb	1
-internal_ptr1		rmb	2
-entry_counter		rmb	1
-direntries		rmb	2
-dir_buffer1		rmb	DIR_len*bytes_sector
-			fdb	$ffff
-FAT_buffer1		rmb	FAT_len*bytes_sector
-			fdb	$ffff
-internal_fcb1		rmb	48
-internal_fcb2		rmb	48
-current_drive		rmb	1
-i_fcb_ptr1		rmb	2
-i_fcb_ptr2		rmb	2
-i_fcb_ptr3		rmb	2
-dflag			rmb	1
-d_ctr			rmb	1
+file_opened		equ	6	;Offset #file opened in disk table
 
 ;BDOS_foutcodes.
 
