@@ -4,9 +4,6 @@
 
 directory_sector	equ	5	;Begin van de directory op drive
 FAT_sector		equ	0	;Begin van de FAT.
-DIR_len			equ	8	;Grootte van de root directory.
-FAT_len			equ	5	;Grootte van de FAT.
-bytes_sector		equ	512	;512 bytes per sector.
 max_sector		equ	2560	;1,3 MByte
 max_disks		equ	1
 
