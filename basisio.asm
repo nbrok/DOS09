@@ -115,9 +115,6 @@ bytlp	anda	#$0f		;Mask lower byte.
 	puls	a,b		;Restore A and B.
 	rts
 
-decimal_fstring	rmb	12
-decimal_string	rmb	12
-
 dec32_ot
 
 	bsr	bin_omzetting
