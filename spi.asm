@@ -16,6 +16,7 @@ rdag		equ	$4
 rmaand		equ	$5
 rjaar		equ	$6
 
+;Variables in page 0 ($0000-$00FF)
 spi_ctr		equ	$40
 reg_pointer	equ	spi_ctr+1
 uur		equ	reg_pointer+1
